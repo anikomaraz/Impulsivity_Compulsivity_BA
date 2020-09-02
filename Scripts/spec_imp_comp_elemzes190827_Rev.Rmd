@@ -52,7 +52,7 @@ table(gambling$group)
 gaming_raw <- read.spss("../Data/gamingOrsi_20141007_CLEAN_elemzeshez.sav", to.data.frame = T)
 
 # exclude participants under 18 as suggested by Reviewer2
-gaming_raw <- gaming_raw[gaming_raw$Age > 18, ]
+gaming_raw <- gaming_raw[gaming_raw$Age > 17, ]
 
 # adjust variables
 gaming_raw$group <- as.factor(gaming_raw$IGD9_cutoff_5)
@@ -569,8 +569,9 @@ g_severity_groom
 
 
 # save multiple plots on the same page
-ggsave("../Figures/spec_severity_final.jpg", gridExtra::arrangeGrob(g_severity_gb, g_severity_gam, g_severity_ex, g_severity_buy, g_severity_groom),
-      width=60, height=40, units="cm")
+ggsave("../Figures/spec_severity_final.jpg", 
+       gridExtra::arrangeGrob(g_severity_gb, g_severity_gam, g_severity_ex, g_severity_buy, g_severity_groom),
+      width=60, height=40, units="cm", dpi=250)
 
 ```
 
