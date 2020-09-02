@@ -1,0 +1,615 @@
+
+---
+title: "[Impulsivity_Compulsivity_BehavAddictions] Representative Sample"
+author: "AMaraz"
+date: "20-11-2017"
+output:
+  html_document: default
+  pdf_document: default
+---
+  
+```{r setup, eval=T, echo=T, warning=F, error=F, message=F}
+
+# Read packages
+library(knitr)
+library(markdown)
+library(foreign)
+library(reshape2)
+library(plyr)
+library(dplyr)
+library(corrplot)
+library(psych)
+library(ggplot2)
+library(gridExtra)
+library(RColorBrewer)
+
+# work from spss (.sav) data? 
+spss_data = FALSE
+
+```
+
+<br>
+<br>
+  
+```{r read_data, eval=T, echo=T, warning=F, error=F, message=F}
+if(spss_data) { 
+
+# transform data file
+repr_raw <- read.spss('OLAAP_130303.sav', to.data.frame=T)
+variables <- c("kor", "oa_1",   # kor=age, oa_1=gender
+               "BIS_21uj", #  summary of Impulsivity
+               "WART_csj", "EDS_csjo", "QABB_Tot", "sogs_cs1", "PIUQ_Tot", "piuq_szr", 
+               "scl_10", "scl_3", "scl_38", "scl_45", "scl_46", "scl_51", "scl_55", 
+               "scl_65", "scl_9",   # items of scl/ocd scale
+               "WART_Tot", "eds_SUM", "SOGS_SUM")
+repr <- repr_raw[variables]
+
+# save data. This will be publically available
+write.csv(repr, file="ImpCompBA_repr.csv")
+
+}
+
+
+```
+
+```{r items, eval=T, echo=T, warning=F, error=F, message=F}
+repr <- read.csv("ImpCompBA_repr.csv")
+scl_OC_items <- colnames(repr[, c("scl_10", "scl_3", "scl_38", "scl_45", 
+                                  "scl_46", "scl_51", "scl_55", "scl_65", "scl_9")]) 
+
+# change value labels on likert scale
+for(i in scl_OC_items) {
+  repr[[i]] <- revalue(repr[[i]], c(
+    "egy?ltal?n nem" = "1", 
+    "kiss?"="2",
+    "m?rs?kelten"="3", 
+    "k?zepesen"="4", 
+    "nagyon"="5"))
+    }
+
+# tranform to numeric
+for(i in scl_OC_items) {
+  repr[[i]] <- as.numeric(as.character(repr[[i]]))
+}
+
+names(repr)
+
+```
+
+```{r impulsivity_compulsivity, eval=T, echo=T, warning=F, error=F, message=F}
+
+## fetch compulsivity average 
+repr$comp_sum <- rowSums(repr[, scl_OC_items], na.rm=T) 
+
+## impulsivity average 
+repr$imp_sum <- repr$BIS_21uj
+
+
+```
+
+
+```{r define_severity_groups, eval=T, echo=T, warning=F, error=F, message=F}
+
+## create groups according to severity
+
+# gambling
+repr$gb_group <- repr$sogs_cs1
+levels(repr$gb_group) <- c(
+  "kev?s probl?ma (1-2 pont)" = "GB minor problems", 
+  "nem j?tszott soha hetente" = "GB Never played weekly",
+  "nincs probl?ma (0 pont)"= "GB Non problematic", 
+  "patol?gi?s szerencsej?t?kos (5 vagy t?bb pont)"="GB pathological",
+  "probl?m?s szerencsej?t?kos (3-4 pont)"="GB problematic") 
+repr$gb_group = factor(repr$gb_group, levels=c("GB Never played weekly", "GB Non problematic", "GB minor problems", "GB problematic", "GB pathological"))
+
+#work
+repr$w_group <- ifelse(repr$WART_Tot >= 51, "W Problematic", "W Non-problematic")
+repr$w_group <- as.factor(repr$w_group)
+
+#exercise
+repr$ex_group <- repr$EDS_csjo
+levels(repr$ex_group) <- c("Asymptomatic"="EX Asymptomatic",
+                           "at-risk for ED"="EX At-risk",
+                           "nondependent-symptomatic"="EX Symptomatic")
+repr$ex_group = factor(repr$ex_group, levels=c("EX Asymptomatic", "EX Symptomatic", "EX At-risk"))
+
+#buying
+repr$buy_group <- as.factor(repr$QABB_Tot >=8)
+levels(repr$buy_group) <- c("FALSE"="BUY Non-pathological", 
+                            "TRUE"="BUY Pathological")
+
+#internet
+repr$int_group <- as.factor(repr$PIUQ_Tot >= 41) 
+repr$int_group[repr$piuq_szr == "?vente vagy ritk?bban" |  repr$piuq_szr == "legal?bb havonta" | repr$piuq_szr == "soha"] <- NA
+levels(repr$int_group) <- c("FALSE"="INT Non-pathological",
+                            "TRUE"="INT Pathological")
+
+## N of groups
+groups <- colnames(repr[, c("gb_group", "w_group", "ex_group", "buy_group", "int_group")]) 
+for (i in groups) {
+  print(table(repr[[i]]))
+} 
+
+## how many missing data?
+for (i in groups) {
+  print(sum(is.na(repr[[i]])))
+}
+
+## create severity measures (continous)
+colnames(repr)[colnames(repr) == "SOGS_SUM"] <- "gb_sev"
+colnames(repr)[colnames(repr) == "WART_Tot"] <- "w_sev"
+colnames(repr)[colnames(repr) == "eds_SUM"] <- "ex_sev"
+colnames(repr)[colnames(repr) == "QABB_Tot"] <- "buy_sev"
+colnames(repr)[colnames(repr) == "PIUQ_Tot"] <- "int_sev"
+
+severity <- c("gb_sev", "w_sev", "ex_sev", "buy_sev", "int_sev")
+
+aggregate(repr$gb_sev, list(repr$gb_group), mean)
+aggregate(repr$w_sev, list(repr$w_group), mean)
+aggregate(repr$ex_sev, list(repr$ex_group), mean)
+aggregate(repr$buy_sev, list(repr$buy_group), mean)
+aggregate(repr$int_sev, list(repr$int_group), mean)
+
+
+```
+
+```{r corr_behav_adds, eval=T, echo=T, warning=F, error=F, message=F}
+library(corrplot)
+M <- subset(repr, "gb_sev" != "GB Never played weekly")
+M <- cor(M[, c("gb_sev", "w_sev", "ex_sev", "buy_sev", "int_sev")], 
+         use="complete")
+corrplot.mixed(M, lower.col = "black", number.cex = .7)
+
+```
+
+
+
+```{r corr_imp_comp, eval=T, echo=T, warning=F, error=F, message=F}
+## CORRELATION between imp and comp in the entire sample: 
+describe(repr$comp_sum)  
+describe(repr$imp_sum) 
+
+cor_imp_compr <- cor.test(repr$comp_sum, repr$imp_sum, alternative="two.sided", method="pearson", conf.level=0.95, exact = T)
+
+
+## generate corr coeff within groups
+func_cor <- function(repr)
+{return(data.frame(cor = cor.test(repr$imp_sum, repr$comp_sum, 
+                                  use="complete", method="pearson")$estimate)) }
+func_cor_p <- function(repr)
+{return(data.frame(p.value = cor.test(repr$imp_sum, repr$comp_sum, 
+                                  use="complete", method="pearson")$p.value)) }
+
+### gambling
+cbind(ddply(repr, .(gb_group), func_cor), 
+      ddply(repr, .(gb_group), func_cor_p)[2])
+
+### internet
+cbind(ddply(repr, .(int_group), func_cor), 
+      ddply(repr, .(int_group), func_cor_p)[2])
+
+### exercise
+cbind(ddply(repr, .(ex_group), func_cor), 
+      ddply(repr, .(ex_group), func_cor_p)[2])
+
+### buying
+cbind(ddply(repr, .(buy_group), func_cor), 
+      ddply(repr, .(buy_group), func_cor_p)[2])
+
+### work
+cbind(ddply(repr, .(w_group), func_cor), 
+      ddply(repr, .(w_group), func_cor_p)[2])
+
+
+```
+
+```{r standardising, eval=T, echo=T, warning=F, error=F, message=F}
+
+## standardising
+repr$imp_std <- as.numeric(as.character(scale(repr$imp_sum, center=T, scale=T)))  
+repr$comp_std <- as.numeric(as.character(scale(repr$comp_sum, center=T, scale=T)))
+
+## imp and comp scores: total and by group
+require(reshape2)
+IC <- colnames(repr[, c("imp_sum", "comp_sum")])
+IC_vas_all <- colnames(repr[, c("imp_sum", "comp_sum", "imp_std", "comp_std")]) 
+
+### total
+for (i in IC_vas_all) {
+  print(round(data.frame(describe(repr[[i]], na.rm = T), row.names = i), 2))
+}
+
+### calculate imp and comp (mean and sd) accross groups
+for(i in groups) {
+  print(aggregate(.~repr[[i]], repr[, c(IC_vas_all)], FUN=mean, na.rm=TRUE, na.action=NULL))
+}
+
+for(i in groups) {
+  print(aggregate(.~repr[[i]], repr[, c(IC_vas_all)], FUN=sd, na.rm=TRUE, na.action=NULL))
+}
+
+```
+
+```{r frequency, eval=T, echo=T, warning=F, error=F, message=F}
+
+## frequency: GENDER
+table(repr$oa_1, exclude=NULL)  # gender N in the entire sample
+
+round(prop.table(table(repr$oa_1, repr$gb_group, exclude=NULL, useNA = "ifany"), 1)*100, 1)
+round(prop.table(table(repr$oa_1, repr$ex_group, exclude=NULL, useNA = "ifany"), 1)*100, 1)
+round(prop.table(table(repr$oa_1, repr$int_group, exclude=NULL, useNA = "ifany"), 1)*100, 1)
+round(prop.table(table(repr$oa_1, repr$w_group, exclude=NULL, useNA = "ifany"), 1)*100, 1)
+round(prop.table(table(repr$oa_1, repr$buy_group, exclude=NULL, useNA = "ifany"), 1)*100, 1)
+
+## describe: AGE
+library(psych)
+describe(repr$kor) # for the entire sample
+
+for (i in groups) {   # mean and SD in each group
+print(summarise(group_by(repr, repr[[i]]), mean= mean(kor, na.rm=T), sd=sd(kor, na.rm=T)))
+}
+
+```
+
+```{r statistics, eval=T, echo=T, warning=F, error=F, message=F}
+
+# impulsivity group differences
+imp_df_repr_ANOVA <- data.frame("F/t" = numeric(), "p" = numeric(), 
+                                "df" = numeric())
+for (i in groups) {
+  columns <- names(repr[i])
+  anova_result <- aov(repr[, "imp_sum"] ~ repr[[i]], data=repr)
+  anova_sum <- summary(anova_result)
+  new_row <- list(anova_sum[[1]][1, 'F value'],
+                  anova_sum[[1]][1, 'Pr(>F)'],
+                  anova_sum[[1]][1, 'Df'])
+  imp_df_repr_ANOVA[names(repr[i]), ] <- new_row
+}
+print(imp_df_repr_ANOVA)
+
+## posthoc impulsivity
+for (i in groups) {
+  anova_result <- aov(imp_sum ~ repr[[i]], data=repr)
+  posthoc_anova <- TukeyHSD(x=anova_result, conf.level=0.95, ordered = F)
+  print(posthoc_anova)
+  }
+
+# compulsivity
+comp_df_repr_ANOVA <- data.frame("F/t" = numeric(), "p" = numeric(), 
+                                 "df" = numeric())
+for (i in groups) {
+  columns <- names(repr[i])
+  anova_result <- aov(repr[, "comp_sum"] ~ repr[[i]], data=repr)
+  anova_sum <- summary(anova_result)
+  new_row <- list(anova_sum[[1]][1, 'F value'],
+                  anova_sum[[1]][1, 'Pr(>F)'],
+                  anova_sum[[1]][1, 'Df'])
+  comp_df_repr_ANOVA[names(repr[i]), ] <- new_row
+    }
+  print(comp_df_repr_ANOVA)
+
+## posthoc compulsivity
+for (i in groups) {
+  anova_result <- aov(comp_sum ~ repr[[i]], data=repr)
+  posthoc_anova <- TukeyHSD(x=anova_result, conf.level=0.95, ordered = F)
+  print(posthoc_anova)
+  }
+  
+## posthoc test of impulsivity  
+ for (i in groups) {
+  anova_result <- aov(imp_sum ~ repr[[i]], data=repr)
+  posthoc_anova <- TukeyHSD(x=anova_result, conf.level=0.95, ordered = F)
+  print(posthoc_anova)
+  }
+
+
+```
+
+```{r regression_for_revision, eval=T, echo=T, warning=F, error=F, message=F}
+# Reviewer1 suggested regression with Symptom severity as dependent, and imp & comp & impulsivity-compulsivity-interaction as predictors
+
+# in behavioural groups
+lm_work <- lm(formula = w_sev ~ imp_std + comp_std + imp_std * comp_std, data=repr[!is.na(repr$w_group), ])
+  summary(lm_work)
+
+lm_ex <- lm(formula = ex_sev ~ imp_std + comp_std + imp_std * comp_std, data=repr[!is.na(repr$ex_group), ])
+  summary(lm_ex)
+  
+lm_gb <- lm(formula = gb_sev ~ imp_std + comp_std + imp_std * comp_std, data=repr[!is.na(repr$gb_group), ])
+  summary(lm_gb)
+  
+lm_buy <- lm(formula = buy_sev ~ imp_std + comp_std + imp_std * comp_std, data=repr[!is.na(repr$buy_group), ])
+  summary(lm_buy)
+
+```
+
+
+```{r prep_data_for_plot, eval=T, echo=T, warning=F, error=F, message=F}
+
+# create melt data for ggplot
+x <- "imp_std" 
+y <- "comp_std"
+repr_gb <-  repr[, c("gb_group", x, y)]
+repr_w <- repr[, c("w_group", x, y)]
+repr_in <- repr[, c("int_group", x, y)]
+repr_ex <- repr[, c("ex_group", x, y)]
+repr_buy <- repr[, c("buy_group", x, y)]
+
+# create summary data for visualisations (N, mean, sd, se)
+### gambling
+g_data_gb <- ddply(repr_gb, .(gb_group), summarise, 
+                   imp_std= mean(imp_std, na.rm = T),
+                   comp_std= mean(comp_std, na.rm = T))
+g_data_gb <- na.omit(g_data_gb)
+
+### work
+g_data_w <- ddply(repr_w, .(w_group), summarise, 
+                  imp_std= mean(imp_std, na.rm = T),
+                   comp_std= mean(comp_std, na.rm = T))
+g_data_w <- na.omit(g_data_w)
+
+### internet
+g_data_in <- ddply(repr_in, .(int_group), summarise, 
+                  imp_std= mean(imp_std, na.rm = T),
+                   comp_std= mean(comp_std, na.rm = T))
+g_data_in <- na.omit(g_data_in)
+
+### exercise
+g_data_ex <- ddply(repr_ex, .(ex_group), summarise, 
+                  imp_std= mean(imp_std, na.rm = T),
+                   comp_std= mean(comp_std, na.rm = T))
+g_data_ex <- na.omit(g_data_ex)
+
+### buy
+g_data_buy <- ddply(repr_buy, .(buy_group), summarise, 
+                  imp_std= mean(imp_std, na.rm = T),
+                   comp_std= mean(comp_std, na.rm = T))
+g_data_buy <- na.omit(g_data_buy)
+
+```
+
+```{r plot_per_group, eval=T, echo=T, warning=F, error=F, message=F}
+
+# prep
+library(ggrepel)
+
+color_gb = "blue"
+color_w = "purple"
+color_in = "red"
+color_ex = "darkgreen"
+color_buy = "orange"
+point_size=8
+line_size=2
+
+set.seed(2018)
+
+# plot representative impulsivity and compulsivity per group 
+
+g_repr <- ggplot() +
+  geom_hline(aes(yintercept=0), colour="gray40", linetype="dashed") +
+  geom_vline(aes(xintercept=0), colour="gray40", linetype="dashed") +
+geom_abline(aes(intercept=0, slope=0.5), color="black", linetype="solid", size=3) +
+  annotate("text", x=1.1, y=0.61, label= "") +
+  
+  
+  ### internet:
+  geom_point(data=g_data_in, aes(x=imp_std, y=comp_std), size=point_size, color=color_in) +
+  geom_line(data=g_data_in, aes(x=imp_std, y=comp_std), size=line_size, color=color_in) +
+  geom_label_repel(data=g_data_in, aes(x=imp_std, y=comp_std), 
+                                       label=c("INT Non-pathological" = "INTERNET \n non-pathological", 
+                                               "INT Pathological" = "INTERNET \n pathological"), 
+                                       fontface= "bold", 
+                   nudge_x = 0, nudge_y = 2, color=color_in) +
+  
+  ### buy:
+  geom_point(data = g_data_buy, aes(x=imp_std, y=comp_std), size=point_size, color=color_buy) +
+  geom_line(data = g_data_buy, aes(x=imp_std, y=comp_std), size=line_size, color=color_buy) +
+  geom_label_repel(data=g_data_buy, aes(x=imp_std, y=comp_std), 
+                                        label=c("BUY Non-pathological" = "BUYING \n non-pathological", 
+                                                "BUY Pathological" = "BUYING \n pathological"), 
+                                        fontface= "bold", 
+                   nudge_x = 0.7, nudge_y = -0.2, color=color_buy) +
+  
+  ### gambling:  
+  geom_point(data=g_data_gb, aes(x=imp_std, y=comp_std), size=point_size, color=color_gb) +
+  geom_line(data=g_data_gb, aes(x=imp_std, y=comp_std), size=line_size, color=color_gb) +
+  geom_label_repel(data=subset(g_data_gb, gb_group!="GB Never played weekly"), 
+                   aes(x=imp_std, y=comp_std), 
+                   label=c("GB Non-problematic" = "GAMBLING \n non-pathological",
+                           "GB minor problems" = "GAMBLING \n minor problems",
+                           "GB problematic" = "GAMBLING \n problematic", 
+                           "GB pathological" = "GAMBLING \n pathological"), 
+                   fontface= "bold", 
+                   nudge_x = -0.3, nudge_y = 0.4, color=color_gb, force=1) +
+  
+  ### exercise:
+  geom_point(data=g_data_ex, aes(x=imp_std, y=comp_std), size=point_size, color=color_ex) +
+  geom_line(data=g_data_ex, aes(x=imp_std, y=comp_std), size=line_size, color=color_ex) +
+  geom_label_repel(data=g_data_ex, aes(x=imp_std, y=comp_std), 
+                   label=c("EX Asymptomatic" = "EXERCISE \n asymptomatic",
+                                               "EX Symptomatic" = "EXERCISE \n symptomatic", 
+                                               "EX At-risk" = "EXERCISE \n at-risk"),
+                    fontface= "bold",
+                    nudge_x = 0.0, nudge_y =-1.7, color=color_ex, force=1) +
+  ### work:
+  geom_point(data=g_data_w, aes(x=imp_std, y=comp_std), size=point_size, color=color_w, na.rm=T) +
+  geom_line(data=g_data_w, aes(x=imp_std, y=comp_std), size=line_size, color=color_w, na.rm=T) +
+  geom_label_repel(data=g_data_w, aes(x=imp_std, y=comp_std), 
+                                  label=c("W Non-problematic" = "WORK \n Non-problematic",
+                                              "W Problematic"  = "WORK \n Problematic"), 
+                                  fontface= "bold", 
+                                  nudge_x = -2, nudge_y = 0, color=color_w, force=100) +
+  
+  ### global:        
+  labs(x="Impulsivity", y="Compulsivity") +
+  theme_linedraw(base_size = 20) +
+  theme(panel.grid.minor = element_blank(), panel.grid.major=element_line()) +
+  coord_cartesian(xlim = c(-0.8, 1.4), ylim=c(-0.8,1.4)) 
+
+g_repr
+
+## save the plot
+# ggsave("repr_groups_final.jpg", width=25, height=18, units="cm")
+
+
+```
+
+```{r plot_severity, eval=T, echo=T, warning=F, error=F, message=F}
+
+# prep
+point_size2 = 3
+xmin = -2.5
+xmax = 4
+ymin = -1.2
+ymax = 4
+
+## set color palette
+gb_colors_grad <- colorRampPalette(brewer.pal(9, "Blues"))(13)
+w_colors_grad <- colorRampPalette(brewer.pal(9, "Purples"))(45)
+ex_colors_grad <- colorRampPalette(brewer.pal(9, "Greens"))(67)
+buy_colors_grad <- colorRampPalette(brewer.pal(9, "Oranges"))(13)
+int_colors_grad <- colorRampPalette(brewer.pal(9, "Reds"))(43)
+
+regr_col = "black"
+regr_size = 2
+subgroup_col = "black"
+
+### GAMBLING
+g_severity_gb <- ggplot() +
+  geom_hline(aes(yintercept=0), colour="gray40", linetype="dashed") +
+  geom_vline(aes(xintercept=0), colour="gray40", linetype="dashed") +
+  geom_point(data=subset(repr, 
+                         gb_group!="GB Never played weekly" & !is.na(gb_sev)), 
+             aes(x=imp_std, y=comp_std, color=factor(gb_sev)),
+             size=point_size2) +
+  geom_jitter() +
+  geom_smooth(method="lm", data=subset(repr, 
+                                       gb_group!="GB Never played weekly" & !is.na(gb_sev)), 
+              aes(x=imp_std, y=comp_std, linetype=gb_group), alpha=0.1, 
+              color=subgroup_col, se=FALSE) + 
+  geom_smooth(method="lm", data=subset(repr, 
+                                       gb_group!="GB Never played weekly" & !is.na(gb_sev)), 
+              aes(imp_std, comp_std), color=regr_col, size=regr_size) +
+  scale_colour_manual(values=gb_colors_grad) +
+  scale_linetype_manual(values=c("dotted", "dotdash", "dashed", "solid"), 
+                        labels=c("GB Non problematic" = "Non-pathological",
+                                 "GB minor problems" = "Minor problems", 
+                                 "GB problematic" = "Problematic", 
+                                 "GB pathological" = "Pathological"))  +
+  labs(x="Impulsivity", y="Compulsivity", color="Severity", linetype="GAMBLING") +
+  theme_linedraw(base_size = 15) +
+  theme(legend.title=element_text(face="bold"), legend.key.size = unit(0.5, "cm"), legend.key.width = unit(3, "line")) +
+  guides(color = guide_legend(order = 0),
+         linetype = guide_legend(order = 1)) +
+  coord_cartesian(xlim = c(xmin, xmax), ylim=c(ymin, ymax)) 
+g_severity_gb
+
+### WORK
+g_severity_w <- ggplot() +
+  geom_hline(aes(yintercept=0), colour="gray40", linetype="dashed") +
+  geom_vline(aes(xintercept=0), colour="gray40", linetype="dashed") +
+  geom_point(data=subset(repr, !is.na(w_sev)), 
+             aes(x=imp_std, y=comp_std, color=factor(w_sev)),
+             size=point_size2) +
+  geom_jitter() +
+  geom_smooth(method="lm", data=subset(repr, !is.na(w_sev)), 
+              aes(x=imp_std, y=comp_std, linetype=w_group), alpha=0.1, 
+              color=subgroup_col, se=FALSE) +
+  geom_smooth(method="lm", data=subset(repr, !is.na(w_sev)), 
+              aes(imp_std, comp_std), color=regr_col, size=regr_size) +
+  scale_colour_manual(values=w_colors_grad) +
+  scale_linetype_manual(values=c("dashed", "solid"), 
+                        labels=c( "W Non-problematic" = "Non-problematic",
+                                  "W Problematic"  = "Problematic")) +
+  labs(x="Impulsivity", y="Compulsivity", color="Severity", linetype="\nWORK") +
+  theme_linedraw(base_size = 15) +
+  theme(legend.title=element_text(face="bold"), legend.key.size = unit(0.5, "cm"), legend.key.width = unit(3, "line")) +
+  guides(color = guide_legend(order = 0),
+         linetype = guide_legend(order = 1)) +
+  coord_cartesian(xlim = c(xmin, xmax), ylim=c(ymin, ymax)) 
+g_severity_w
+
+
+### EXERCISE  
+g_severity_ex <- ggplot() +
+  geom_hline(aes(yintercept=0), colour="gray40", linetype="dashed") +
+  geom_vline(aes(xintercept=0), colour="gray40", linetype="dashed") +
+  geom_point(data=subset(repr, !is.na(ex_sev)), 
+             aes(x=imp_std, y=comp_std, color=factor(ex_sev)),
+             size=point_size2) +
+  geom_jitter() +
+  geom_smooth(method="lm", data=subset(repr, !is.na(ex_sev)), 
+              aes(x=imp_std, y=comp_std, linetype=ex_group), alpha=0.1, 
+              color=subgroup_col, se=FALSE) +
+  geom_smooth(method="lm", data=subset(repr, !is.na(ex_sev)), 
+              aes(imp_std, comp_std), color=regr_col, size=regr_size) +
+  scale_colour_manual(values=ex_colors_grad) +
+  scale_linetype_manual(values=c("dotted", "dashed", "solid"), 
+                        labels=c("EX Asymptomatic" = "Asymptomatic", 
+                                 "EX Symptomatic"  = "Symptomatic", 
+                                 "EX At-risk" = "At-risk")) +
+  labs(x="Impulsivity", y="Compulsivity", color="Severity", linetype="EXERCISE") +
+  theme_linedraw(base_size = 15) +
+  theme(legend.title=element_text(face="bold"), legend.key.size = unit(0.4, "cm"), legend.key.width = unit(3, "line")) +
+  guides(color = guide_legend(order = 0),
+         linetype = guide_legend(order = 1)) +
+  coord_cartesian(xlim = c(xmin, 3), ylim=c(ymin, ymax)) 
+  g_severity_ex
+
+
+### BUYING  
+g_severity_buy <- ggplot() +
+  geom_hline(aes(yintercept=0), colour="gray40", linetype="dashed") +
+  geom_vline(aes(xintercept=0), colour="gray40", linetype="dashed") +
+  geom_point(data=subset(repr, !is.na(buy_sev)), 
+             aes(x=imp_std, y=comp_std, color=factor(buy_sev)), size=point_size2) +
+  geom_jitter() +
+  geom_smooth(method="lm", data=subset(repr, !is.na(buy_sev)), 
+              aes(x=imp_std, y=comp_std, linetype=buy_group), alpha=0.1, 
+              color=subgroup_col, se=FALSE) +
+  geom_smooth(method="lm", data=subset(repr, !is.na(buy_sev)), 
+              aes(imp_std, comp_std), color=regr_col, size=regr_size) +
+  scale_colour_manual(values=buy_colors_grad) +
+  scale_linetype_manual(values=c("dashed", "solid"), 
+                         labels=c("BUY Non-pathological" = "Non-pathological",
+                                  "BUY Pathological" = "Pathological")) +
+  labs(x="Impulsivity", y="Compulsivity", linetype="BUYING", color="Severity") +
+  theme_linedraw(base_size = 15) +
+  theme(legend.title=element_text(face="bold"), legend.key.size = unit(0.5, "cm"), legend.key.width = unit(3, "line")) + 
+  guides(color = guide_legend(order = 0),
+          linetype = guide_legend(order = 1)) +
+  coord_cartesian(xlim = c(xmin, 2.8), ylim=c(ymin, ymax)) 
+g_severity_buy
+
+
+### INTERNET 
+g_severity_int <- ggplot() +
+  geom_hline(aes(yintercept=0), colour="gray40", linetype="dashed") +
+  geom_vline(aes(xintercept=0), colour="gray40", linetype="dashed") +
+  geom_point(data=subset(repr, !is.na(int_sev)), 
+             aes(x=imp_std, y=comp_std, color=factor(int_sev)), size=point_size2) +
+  geom_jitter() +
+  geom_smooth(method="lm", data=subset(repr, !is.na(int_sev)), 
+              aes(x=imp_std, y=comp_std, linetype=int_group), alpha=0.1,
+              color=subgroup_col, se=FALSE) +
+  geom_smooth(method="lm", data=subset(repr, !is.na(int_sev)), 
+              aes(imp_std, comp_std), color=regr_col, size=regr_size) +
+  scale_colour_manual(values=int_colors_grad) +
+  scale_linetype_manual(values=c("dashed", "solid"), 
+                        labels=c("INT Non-pathological" = "Non-pathological", 
+                                 "INT Pathological" = "Pathological")) +
+  labs(x="Impulsivity", y="Compulsivity", color="Severity", linetype="INTERNET USE") +
+  theme_linedraw(base_size = 15) +
+  theme(legend.title=element_text(face="bold"), legend.key.size = unit(0.5, "cm"), legend.key.width = unit(3, "line")) +
+  guides(color = guide_legend(order = 0),
+         linetype = guide_legend(order = 1)) +
+  coord_cartesian(xlim = c(xmin, 3.1), ylim=c(ymin, ymax)) 
+g_severity_int
+
+
+#### save multiple plots on the same page
+ggsave("repr_severity_final.jpg", gridExtra::arrangeGrob(g_severity_gb, g_severity_w, g_severity_ex, g_severity_buy, g_severity_int), 
+width=60, height=40, units="cm")
+
+```
+
