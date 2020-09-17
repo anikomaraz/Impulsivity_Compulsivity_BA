@@ -45,7 +45,7 @@ variables <- c("kor", "oa_1",   # kor=age, oa_1=gender
 repr <- repr_raw[variables]
 
 # save data. This will be publically available
-write.csv(repr, file="ImpCompBA_repr.csv")
+write.csv(repr, file="../Data/ImpCompBA_repr.csv")
 
 }
 
@@ -53,7 +53,7 @@ write.csv(repr, file="ImpCompBA_repr.csv")
 ```
 
 ```{r items, eval=T, echo=T, warning=F, error=F, message=F}
-repr <- read.csv("ImpCompBA_repr.csv")
+repr <- read.csv("../Data/ImpCompBA_repr.csv")
 scl_OC_items <- colnames(repr[, c("scl_10", "scl_3", "scl_38", "scl_45", 
                                   "scl_46", "scl_51", "scl_55", "scl_65", "scl_9")]) 
 
@@ -449,7 +449,7 @@ geom_abline(aes(intercept=0, slope=0.5), color="black", linetype="solid", size=3
 g_repr
 
 ## save the plot
-# ggsave("repr_groups_final.jpg", width=25, height=18, units="cm")
+# ggsave("../Figures/repr_groups_final.jpg", width=25, height=18, units="cm")
 
 
 ```
@@ -608,7 +608,7 @@ g_severity_int
 
 
 #### save multiple plots on the same page
-ggsave("repr_severity_final.jpg", gridExtra::arrangeGrob(g_severity_gb, g_severity_w, g_severity_ex, g_severity_buy, g_severity_int), 
+ggsave("../Figures/repr_severity_final.jpg", gridExtra::arrangeGrob(g_severity_gb, g_severity_w, g_severity_ex, g_severity_buy, g_severity_int), 
 width=60, height=40, units="cm")
 
 ```

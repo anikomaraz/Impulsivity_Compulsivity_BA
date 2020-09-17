@@ -417,7 +417,7 @@ g_spec_group <- ggplot() +
 g_spec_group
 
 ## save the plot
-ggsave(plot = g_spec_group, "../Figures/spec_group.jpg", width=25, height=18, units="cm")
+ggsave(plot = g_spec_group, "../Figures/spec_group_final.jpg", width=25, height=18, units="cm")
 
 ```
 
