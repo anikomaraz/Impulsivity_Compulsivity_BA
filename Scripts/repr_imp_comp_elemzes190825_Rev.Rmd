@@ -59,7 +59,7 @@ scl_OC_items <- colnames(repr[, c("scl_10", "scl_3", "scl_38", "scl_45",
 
 # change value labels on likert scale
 for(i in scl_OC_items) {
-  repr[[i]] <- revalue(repr[[i]], c(
+  repr[[i]] <- plyr::revalue(repr[[i]], c(
     "egy?ltal?n nem" = "1", 
     "kiss?"="2",
     "m?rs?kelten"="3", 
@@ -181,24 +181,24 @@ func_cor_p <- function(repr)
                                   use="complete", method="pearson")$p.value)) }
 
 ### gambling
-cbind(ddply(repr, .(gb_group), func_cor), 
-      ddply(repr, .(gb_group), func_cor_p)[2])
+cbind(plyr::ddply(repr, .(gb_group), func_cor), 
+      plyr::ddply(repr, .(gb_group), func_cor_p)[2])
 
 ### internet
-cbind(ddply(repr, .(int_group), func_cor), 
-      ddply(repr, .(int_group), func_cor_p)[2])
+cbind(plyr::ddply(repr, ~int_group, func_cor), 
+      plyr::ddply(repr, ~int_group, func_cor_p)[2])
 
 ### exercise
-cbind(ddply(repr, .(ex_group), func_cor), 
-      ddply(repr, .(ex_group), func_cor_p)[2])
+cbind(plyr::ddply(repr, ~ex_group, func_cor), 
+      plyr::ddply(repr, ~ex_group, func_cor_p)[2])
 
 ### buying
-cbind(ddply(repr, .(buy_group), func_cor), 
-      ddply(repr, .(buy_group), func_cor_p)[2])
+cbind(plyr::ddply(repr, ~buy_group, func_cor), 
+      plyr::ddply(repr, ~buy_group, func_cor_p)[2])
 
 ### work
-cbind(ddply(repr, .(w_group), func_cor), 
-      ddply(repr, .(w_group), func_cor_p)[2])
+cbind(plyr::ddply(repr, ~w_group, func_cor), 
+      plyr::ddply(repr, ~w_group, func_cor_p)[2])
 
 
 ```
@@ -337,31 +337,31 @@ repr_buy <- repr[, c("buy_group", x, y)]
 
 # create summary data for visualisations (N, mean, sd, se)
 ### gambling
-g_data_gb <- ddply(repr_gb, .(gb_group), summarise, 
+g_data_gb <- plyr::ddply(repr_gb, ~gb_group, summarise, 
                    imp_std= mean(imp_std, na.rm = T),
                    comp_std= mean(comp_std, na.rm = T))
 g_data_gb <- na.omit(g_data_gb)
 
 ### work
-g_data_w <- ddply(repr_w, .(w_group), summarise, 
+g_data_w <- plyr::ddply(repr_w, ~w_group, summarise, 
                   imp_std= mean(imp_std, na.rm = T),
                    comp_std= mean(comp_std, na.rm = T))
 g_data_w <- na.omit(g_data_w)
 
 ### internet
-g_data_in <- ddply(repr_in, .(int_group), summarise, 
+g_data_in <- plyr::ddply(repr_in, ~int_group, summarise, 
                   imp_std= mean(imp_std, na.rm = T),
                    comp_std= mean(comp_std, na.rm = T))
 g_data_in <- na.omit(g_data_in)
 
 ### exercise
-g_data_ex <- ddply(repr_ex, .(ex_group), summarise, 
+g_data_ex <- plyr::ddply(repr_ex, ~ex_group, summarise, 
                   imp_std= mean(imp_std, na.rm = T),
                    comp_std= mean(comp_std, na.rm = T))
 g_data_ex <- na.omit(g_data_ex)
 
 ### buy
-g_data_buy <- ddply(repr_buy, .(buy_group), summarise, 
+g_data_buy <- plyr::ddply(repr_buy, ~buy_group, summarise, 
                   imp_std= mean(imp_std, na.rm = T),
                    comp_std= mean(comp_std, na.rm = T))
 g_data_buy <- na.omit(g_data_buy)
